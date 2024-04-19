@@ -1,0 +1,162 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
+#include "./http.h"
+
+void http_initialize(const char* wireless_ssid, const char* password) {
+  pinMode(D1, OUTPUT);
+  pinMode(D2, OUTPUT);
+  pinMode(D4, OUTPUT);
+  pinMode(D5, OUTPUT);
+  pinMode(D6, OUTPUT);
+  pinMode(D7, OUTPUT);
+  pinMode(D8, OUTPUT);
+  digitalWrite(D4, HIGH);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+  WiFi.begin(wireless_ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    ++initial_state;
+    Serial.println("Connecting to WiFi...");
+    if (initial_state == 15) {
+      initial_state = 0;
+      break;
+    }
+  }
+  if (initial_state == 0) {
+    Serial.print("Unable connect to the WiFi network");
+    delay(5000);
+    ESP.restart();
+  }
+  else Serial.println("Connected to the WiFi network");
+}
+
+void http_loop() {
+  if ((WiFi.status() == WL_CONNECTED)) {  //Check the current connection status
+    WiFiClient client;
+    HTTPClient http;
+    http.setTimeout(20000);
+    Serial.print("[HTTP] begin...\n");
+    request_cycle = request_cycle + 1;
+
+    if (http.begin(client, "http://128.199.192.199/api/user_route/instruction/get_instruction?mac_address=00:00:00:00:00:01") > 0) {  //Specify the URL
+      Serial.print("[HTTP] GET...\n");
+      int httpCode = http.GET();
+      if (httpCode > 0) {
+        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+
+        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+          String payload = http.getString();
+          unsigned int data = payload.toInt();
+          if (data != previous_data) {
+            previous_data = data;
+            convert_decimal_to_binary(data);
+            update_relay(c1, c2, c3, c4, c5, c6, c7, c8);
+            Serial.println("Update relay successful");
+          }
+          Serial.println("[HTTP] Okay");
+        }
+      } else {
+        // 500 internal error
+        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        for (int j = 0; j < 15; ++j) {
+          digitalWrite(D4, HIGH);
+          delay(100);
+          digitalWrite(D4, LOW);
+          delay(100);
+        }
+        digitalWrite(D4, HIGH);
+      }
+      http.end();
+    } else {
+      // 404 not found or no response
+      Serial.printf("[HTTP] Unable to connect\n");
+      for (int j = 0; j < 4; ++j) {
+        digitalWrite(D4, HIGH);
+        delay(500);
+        digitalWrite(D4, LOW);
+        delay(500);
+      }
+      digitalWrite(D4, HIGH);
+    }
+  }
+
+  if ( isIdle && request_cycle == 2500 ) ESP.restart();
+
+  Serial.println();
+  delay(6000);
+}
+
+void update_relay(int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8) {
+  if (!a1 && !a2 && !a3 && !a4 && !a5 && !a6 && !a7 && !a8) isIdle = true;
+  digitalWrite(D1, a1);
+  digitalWrite(D2, a2);
+  digitalWrite(D5, a3);
+  digitalWrite(D6, a4);
+  digitalWrite(D7, a5);
+  digitalWrite(D8, a6);
+}
+
+void convert_decimal_to_binary(int decimal) {
+  for (int i = 0; decimal > 0; ++i) {
+    a[i] = decimal % 2;
+    decimal = decimal / 2;
+    delay(10);
+  }
+  if (a[0] == 1) {
+    c1 = true;
+  } else {
+    c1 = false;
+  }
+
+  if (a[1] == 1) {
+    c2 = true;
+  } else {
+    c2 = false;
+  }
+
+  if (a[2] == 1) {
+    c3 = true;
+  } else {
+    c3 = false;
+  }
+
+  if (a[3] == 1) {
+    c4 = true;
+  } else {
+    c4 = false;
+  }
+
+  if (a[4] == 1) {
+    c5 = true;
+  } else {
+    c5 = false;
+  }
+
+  if (a[5] == 1) {
+    c6 = true;
+  } else {
+    c6 = false;
+  }
+
+  if (a[6] == 1) {
+    c7 = true;
+  } else {
+    c7 = false;
+  }
+  if (a[7] == 1) {
+    c8 = true;
+  } else {
+    c8 = false;
+  }
+  for (int i = 0; i < 8; ++i) {
+    Serial.print(a[i]);
+    Serial.print(" ");
+    a[i] = 0;
+    delay(10);
+  }
+  Serial.println();
+}
