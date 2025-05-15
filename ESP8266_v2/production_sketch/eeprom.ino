@@ -1,6 +1,7 @@
 #include <EEPROM.h>
 #include "./eeprom.h"
 
+
 void eeprom_initialize() {
   EEPROM.begin(eeprom_size);
   pinMode(D4, OUTPUT);

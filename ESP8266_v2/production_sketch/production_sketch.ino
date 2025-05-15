@@ -3,13 +3,12 @@
 #include "./webserver.h"
 #include "./http.h"
 
-String username = "IOT";
-String password = "12345678";
+String username = "kasegro";
+String password = "myfarm@123";
 
 bool processState = true;
 
 void setup() {
-  // put your setup code here, to run once:
   pinMode(0, INPUT_PULLUP);
   Serial.begin(115200);
   delay(3000);
@@ -26,7 +25,6 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-
   if (processState) {
     http_loop();
   } else {
